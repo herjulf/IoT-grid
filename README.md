@@ -34,9 +34,9 @@ and software platforms are possible.
 
 Development
 -----------
-This repository consist of simple scripts to facilitate building and cloning
-the current projects to boost research, development, collaboration and
-education.
+This repository consist of simple scripts to get up to speed and facilitate 
+building and cloning the current project to boost research, development, 
+collaboration and education.
 
 
 * part1.sh Bash script building the ARM toolchain for the MCU.
