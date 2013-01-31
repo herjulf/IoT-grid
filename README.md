@@ -27,7 +27,7 @@ and software platforms are possible.
 ### License: Open Source. LGPL.
 
 
-### Current software platform:
+### Current used software platforms:
 * Ubuntu/Linux
 * Contiki OS
 
