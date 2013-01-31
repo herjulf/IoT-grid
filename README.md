@@ -1,5 +1,5 @@
-IoT-grid
-========
+The IoT-grid project
+====================
 
 Introduction
 -------------
@@ -21,9 +21,14 @@ MCU. Current software implementation is based the Contiki platform using COAP
 protocol for grid communication.
 
 ### For more info:
-(http://ttaportal.org/menu/projects/microgrid/csd-2012-fall/)  `http://ttaportal.org/menu/projects/microgrid/csd-2012-fall/` 
+(http://ttaportal.org/menu/projects/microgrid/csd-2012-fall/) 
 
 ### License: Open Source. LGPL.
+
+
+### Current software platform:
+Ubuntu/Linux, Contiki OS
+
 
 Development
 -----------
@@ -32,8 +37,9 @@ the current projects to boost research, development, collaboration and
 education.
 
 
-### part1. Building the toolchain for the MCU.
-### part2. Building the programmer for the MCU
+### part1. Bash script building the ARM toolchain for the MCU.
+### part2. Bash script building the programmer for the ARM MCU
+
 
 
 
