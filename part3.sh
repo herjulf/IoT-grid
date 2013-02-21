@@ -1,6 +1,3 @@
- git clone https://github.com/noiseoverip/contiki.git
- make TARGET=dc-dc_converter
-contiki/examples/microgridNode
 
 # 1. Static 2000::1/64 Ipv6 on wired ethernet interface
 #    We have to fight ubuntu automatic machinery
@@ -20,20 +17,23 @@ iface eth3 inet6 static
   address 2000::1
   netmask 64
 
-# Manually addr setting
-ip add add 2000::1/64 dev eth3 
-ip link set up dev eth3 
-
 # Turn on ip6 routing to enable address assignment
 # Uncommnet write to /proc/sys/net/ipv6/conf/
 
+# in /etc/sysctl.conf
 net.ipv6.conf.all.forwarding=1
-/etc/sysctl.conf
+
+# Execute
+sysctl -p
+
+# Manually addr setting
+ip addr add 2000::1/64 dev eth3 
+ip link set up dev eth3 
 
 # We have to install and run radvd to assign addresses to IoT-controller
 # units. 
 
-# Ubuntu intsall
+# Ubuntu install
 apt-get install radvd
 
 # Config
@@ -49,9 +49,11 @@ interface eth3
      };
 };
 
+
+# start daemon
 /usr/sbin/radvd
 
-#check neighbors
+#check ip6 neighbors and find our board
 ip -6 n 
 
 #Use firefox to discover it.

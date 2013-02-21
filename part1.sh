@@ -34,12 +34,12 @@ build_arm_toolchain()
 {
  cd summon-arm-toolchain
  git pull 
- ./summon-arm-toolchain PREFIX=TPATH USE_LINARO=0
+ ./summon-arm-toolchain PREFIX=$TPATH USE_LINARO=0
  cd -
 }
 
-get_ubuntu_packages
-get_arm_toolchain
+#get_ubuntu_packages
+#get_arm_toolchain
 build_arm_toolchain
 
 ques
