@@ -98,25 +98,37 @@ struct udp_hdr {
  unsigned short int csum;
 };
 
+#if WITH_COAP == 7
 struct coap_hdr {
   unsigned int oc:4;
   unsigned int type:2;
   unsigned int ver:2;
   unsigned int code:8;
   unsigned short id; 
-} ;
+};
+#elif WITH_COAP == 13
+struct coap_hdr {
+  unsigned int tkl:4;
+  unsigned int type:2;
+  unsigned int ver:2;
+  unsigned int code:8;
+  unsigned short id;
+};
+#else
+#error "CoAP version defined by WITH_COAP is not supported"
+#endif
 
-struct coap_opt_s {     /* length < 15 */
-  unsigned int len:4;   /* number of option bytes (15 indicates extended form) */
-  unsigned int delta:4;      /* option type (expressed as delta) */
-  /* 0--14 bytes options */
+/* length < 15 for CoAP-07 and length < 13 for CoAP-13*/
+struct coap_opt_s {
+  unsigned int len:4;
+  unsigned int delta:4;
 };
 
-struct coap_opt_l {      /* extended form, to be used when lengt==15 */
-  unsigned int flag:4;   /* must be 15! */
-  unsigned int delta:4;    /* option type (expressed as delta) */
-  unsigned int len:8;   /* length - 15 */
-  /* 15--270 bytes options */
+/* extended form, to be used when length==15 */
+struct coap_opt_l {
+  unsigned int flag:4;  /* either 15 or 13 depending on the CoAP version */
+  unsigned int delta:4; /* option type (expressed as delta) */
+  unsigned int len:8;   /* MAX_URI_LEN = 50 so one byte is enough for extended length */
 };
 
 void print_date(char *datebuf)
@@ -150,9 +162,12 @@ void dump_pkt(struct coap_hdr *ch, int len)
 {
   int i;
   char *d = (char *) ch; 
-  
-  printf("v=%u t=%u oc=%u code=%u id=%x\n", ch->ver, ch->type, 
-	 ch->oc,  ch->code, ch->id);
+
+#if WITH_COAP == 7
+  printf("v=%u t=%u oc=%u code=%u id=%x\n", ch->ver, ch->type, ch->oc, ch->code, ch->id);
+#elif WITH_COAP == 13
+  printf("v=%u t=%u tkl=%u code=%u id=%x\n", ch->ver, ch->type, ch->tkl, ch->code, ch->id);
+#endif
   
   for(i = 0; i < len; i++) {
     if(!i) 
@@ -219,7 +234,7 @@ int unsolicited_grid_reports(void)
   return 0;
 }
 
-int explicit_guery_control(void)
+int explicit_query_control(void)
 {
   int i, sock, len;
   socklen_t clilen;
@@ -245,7 +260,11 @@ int explicit_guery_control(void)
   ch_tx = (struct coap_hdr*) &buf;
   ch_tx->ver = 1;
   ch_tx->type = 0;
+#if WITH_COAP == 7
   ch_tx->oc = 1;
+#elif WITH_COAP == 13
+  ch_tx->tkl = 0;
+#endif
   if(mode & M_GET)
     ch_tx->code = 1;
   if(mode & M_POST)
@@ -253,21 +272,39 @@ int explicit_guery_control(void)
 
   ch_tx->id = 0xBEEF;
 
+#if WITH_COAP == 7
   if(strlen(uri) <= 14) {
     ch_os = (struct coap_opt_s*) &buf[4];
-    ch_os->delta = 9; // 11; /* Uri-URIatch */
+    ch_os->delta = 9; // 9; /* Uri-Patch */
     ch_os->len = strlen(uri);
-    strcpy(&buf[5], uri); /* Long opt */
+    strcpy(&buf[5], uri); /* Short opt */
     len = sizeof(struct coap_hdr) + strlen(uri) + 1;
   }
   else if(strlen(uri) > 14) {
     ch_ol = (struct coap_opt_l*) &buf[4];
     ch_ol->flag = 0xf;
-    ch_ol->delta = 9; // 11; /* Uri-URIatch */
+    ch_ol->delta = 9; // 9; /* Uri-Patch */
     ch_ol->len = strlen(uri) - 0xf;
     strcpy(&buf[6], uri); /* Long opt */
     len = sizeof(struct coap_hdr) + strlen(uri) + 2;
   }
+#elif WITH_COAP == 13
+  if(strlen(uri) <= 12) {
+    ch_os = (struct coap_opt_s*) &buf[4];
+    ch_os->delta = 11; // 11; /* Uri-Patch */
+    ch_os->len = strlen(uri);
+    strcpy(&buf[5], uri); /* Short opt */
+    len = sizeof(struct coap_hdr) + strlen(uri) + 1;
+  }
+  else if(strlen(uri) > 12) {
+    ch_ol = (struct coap_opt_l*) &buf[4];
+    ch_ol->flag = 0xd;
+    ch_ol->delta = 11; // 11; /* Uri-Patch */
+    ch_ol->len = strlen(uri) - 0xd;
+    strcpy(&buf[6], uri); /* Long opt */
+    len = sizeof(struct coap_hdr) + strlen(uri) + 2;
+  }
+#endif
 
   if(mode & M_POST) {
     strncat(&buf[len], payload, MAX_URI_LEN);
@@ -399,7 +436,7 @@ int main(int ac, char *av[])
     unsolicited_grid_reports();
 
   if(mode & (M_GET | M_POST)) 
-    explicit_guery_control();
+    explicit_query_control();
 
   exit(0);
 }
