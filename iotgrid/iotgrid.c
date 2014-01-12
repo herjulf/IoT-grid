@@ -384,11 +384,22 @@ int main(int ac, char *av[])
     inet_pton(AF_INET6, av[i+1], &server_addr.sin6_addr);
 
     /* Pick up URI */
-    strncpy((char *) &uri, av[i+2], MAX_URI_LEN);
+    if (strlen(av[i+2]) > MAX_URI_LEN) {
+  	  printf("URI length exceeds the maximum. Maximum URI length is %d\n", MAX_URI_LEN);
+  	  exit(0);
+    }
+    memset(uri, 0, sizeof(uri));
+    strncpy((char *) uri, av[i+2], MAX_URI_LEN);
 
     /* Pick up payload if POST */
-    if(mode & M_POST)
-      strncpy((char *) &payload, av[i+3], MAX_URI_LEN);
+    if(mode & M_POST) {
+      memset(payload, 0, sizeof(payload));
+#if WITH_COAP == 7
+      strcpy(payload, av[i+3]);
+#elif WITH_COAP == 13
+      sprintf(payload, "\xff%s", av[i+3]);
+#endif
+    }
   }
 
   for(i = 1; (i < ac) && (av[i][0] == '-'); i++) {
