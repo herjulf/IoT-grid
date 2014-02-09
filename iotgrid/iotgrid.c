@@ -28,6 +28,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <curses.h>
 
 #define VERSION "1.0 2013-05-07"
 
@@ -40,8 +41,10 @@ void usage_iotgridd(void)
 {
   printf("\niotgridd daemon and monitor program\n");
   printf("Version %s\n", VERSION);
-  printf("iotgridd [-d mask] [-b]");
-  printf(" Example. Reads all incoming CoAP reports: iotgridd");
+  printf("iotgridd [-d mask] [-b]\n");
+  printf(" Example. Reads all incoming CoAP reports: iotgridd\n");
+  printf("iotgridd [-p 2000::121f:e0ff:fe12:1d04] [-t 1000]\n");
+  printf(" Example. Reads state vector from specified IP address every one second");
 }
 
 void usage_iotgrid(void)
@@ -80,10 +83,14 @@ unsigned int debug = 0; /* default debug */
 #define M_RAW           (1<<0)
 #define M_GET           (1<<1)
 #define M_POST          (1<<2)
+#define M_PULL			 (1<<3)
 
 unsigned int mode = 0; /* default mode */
 
 int date, utime, utc, background = 0;
+
+/* Time in millieseconds to pull the state vector */
+unsigned long pull_interval;
 
 struct sockaddr_in6 server_addr, client_addr;
 
@@ -234,9 +241,92 @@ int unsolicited_grid_reports(void)
   return 0;
 }
 
+struct _sVector{
+	char status[50];
+	char vOut[50];
+	char iOut[50];
+	char vIn[50];
+	char iIn[50];
+	char prio[50];
+} sVector;
+
+int pull_state_vector(void)
+{
+    WINDOW * mainwin;
+    int row, col;
+//    char ch;
+    char addrbuf[INET6_ADDRSTRLEN];
+
+    /*  Initialize ncurses  */
+	if ((mainwin = initscr()) == NULL){
+		fprintf(stderr, "Error initialising ncurses.\n");
+		exit(EXIT_FAILURE);
+	}
+
+    /*  Initialize colours  */
+    start_color();
+
+	init_pair(1,  COLOR_RED,     COLOR_BLACK);
+	init_pair(2,  COLOR_GREEN,   COLOR_BLACK);
+	init_pair(3,  COLOR_YELLOW,  COLOR_BLACK);
+	init_pair(4,  COLOR_BLUE,    COLOR_BLACK);
+	init_pair(5,  COLOR_MAGENTA, COLOR_BLACK);
+	init_pair(6,  COLOR_CYAN,    COLOR_BLACK);
+	init_pair(7,  COLOR_BLUE,    COLOR_WHITE);
+	init_pair(8,  COLOR_WHITE,   COLOR_RED);
+	init_pair(9,  COLOR_BLACK,   COLOR_GREEN);
+	init_pair(10, COLOR_BLUE,    COLOR_YELLOW);
+	init_pair(11, COLOR_WHITE,   COLOR_BLUE);
+	init_pair(12, COLOR_WHITE,   COLOR_MAGENTA);
+	init_pair(13, COLOR_BLACK,   COLOR_CYAN);
+
+	strcpy(uri, "dc-dc/stateVector");
+	inet_ntop(AF_INET6, &server_addr.sin6_addr, addrbuf, INET6_ADDRSTRLEN);
+
+	while (1)
+	{
+//		fflush(stdout);
+//		read(STDIN_FILENO, &ch, 1);
+//		if (ch=='q')
+//			break;
+		explicit_query_control();
+
+		color_set(7, NULL);
+		getmaxyx(mainwin, row, col);
+		mvprintw(2, (col - strlen("GRID MONITOR")) / 2, "%s", "GRID MONITOR");
+		mvprintw(5, 10, "%s", "IP");
+		mvprintw(5, 40, "%s", "STATE");
+		mvprintw(5, 60, "%s", "V-OUT");
+		mvprintw(5, 80, "%s", "I-OUT");
+		mvprintw(5, 100, "%s", "V-IN");
+		mvprintw(5, 120, "%s", "I-IN");
+		mvprintw(5, 140, "%s", "PRIO");
+
+		color_set(8, NULL);
+
+		mvprintw(6, 10, "%s", addrbuf);
+		mvprintw(6, 40, "%s", sVector.status);
+		mvprintw(6, 60, "%s", sVector.vOut);
+		mvprintw(6, 80, "%s", sVector.iOut);
+		mvprintw(6, 100, "%s", sVector.vIn);
+		mvprintw(6, 120, "%s", sVector.iIn);
+		mvprintw(6, 140, "%s", sVector.prio);
+
+		refresh();
+		/* milieseconds */
+		usleep(pull_interval*1000);
+	}
+
+    delwin(mainwin);
+    endwin();
+    refresh();
+
+    return EXIT_SUCCESS;
+}
+
 int explicit_query_control(void)
 {
-  int i, sock, len;
+  int i, j, sock, len;
   socklen_t clilen;
 
   struct coap_hdr *ch_rx, *ch_tx;
@@ -265,7 +355,7 @@ int explicit_query_control(void)
 #elif WITH_COAP == 13
   ch_tx->tkl = 0;
 #endif
-  if(mode & M_GET)
+  if((mode & M_GET) || (mode & M_PULL))
     ch_tx->code = 1;
   if(mode & M_POST)
     ch_tx->code = 2;
@@ -339,7 +429,63 @@ int explicit_query_control(void)
     return 1;
   }
 
-  printf("Message from %s, len=%d\n", inet_ntop(AF_INET6, &client_addr.sin6_addr, 
+	if (mode & M_PULL)
+	{
+		memset(sVector.vIn, 0, sizeof(sVector.vIn));
+		memset(sVector.vOut, 0, sizeof(sVector.vOut));
+		memset(sVector.iIn, 0, sizeof(sVector.iIn));
+		memset(sVector.iOut, 0, sizeof(sVector.iOut));
+		memset(sVector.prio, 0, sizeof(sVector.prio));
+
+		/* parsing the state vector (expected values are status[on/off], Vout, Iout, Vin, Iin, Priority)
+		 * looks ugly though
+		*/
+		for (i = 5; i < len; i++)
+		{
+			if (buf[i] == 'O')
+			{
+				if (buf[i + 1] == 'N')
+					strcpy(sVector.status, "ON");
+				else if (buf[i + 1] == 'F')
+					strcpy(sVector.status, "OFF");
+				continue;
+			}
+			if (buf[i] == '\n')
+			{
+				j++;
+				continue;
+			}
+
+			if ((buf[i] >= 0x30 && buf[i] <= 0x39) || buf[i] == '.')
+			{
+				char tmp[2];
+				tmp[0] = buf[i];
+				tmp[1] = '\0';
+				switch (j)
+				{
+				case 1:
+					strcat(sVector.vOut, tmp);
+					break;
+				case 2:
+					strcat(sVector.iOut, tmp);
+					break;
+				case 3:
+					strcat(sVector.vIn, tmp);
+					break;
+				case 4:
+					strcat(sVector.iIn, tmp);
+					break;
+				case 5:
+					strcat(sVector.prio, tmp);
+					break;
+				}
+			}
+		}
+		close(sock);
+		return 0;
+	}
+
+  printf("Message from %s, len=%d\n", inet_ntop(AF_INET6, &client_addr.sin6_addr,
 					 addrbuf, INET6_ADDRSTRLEN), len);
 
   if(debug & D_COAP_PKT)
@@ -414,9 +560,21 @@ int main(int ac, char *av[])
 	i++;
 	debug = strtoul(av[i], NULL, 16);
       }
+
+      else if (strncmp(av[i], "-p", 2) == 0) {
+	i++;
+    /* Pick up address */
+    inet_pton(AF_INET6, av[i], &server_addr.sin6_addr);
+	mode = M_PULL;
+      }
+
+      else if (strncmp(av[i], "-t", 2) == 0) {
+	i++;
+	pull_interval=strtoul(av[i], NULL, 10);
+      }
   }
 
-  if(background) {
+  if(background && !(mode & M_PULL)) {
     int i;
 
     if(getppid() == 1) 
@@ -449,5 +607,8 @@ int main(int ac, char *av[])
   if(mode & (M_GET | M_POST)) 
     explicit_query_control();
 
+  if (mode & M_PULL){
+    pull_state_vector();
+  }
   exit(0);
 }

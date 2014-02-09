@@ -1,7 +1,21 @@
 CFLAGS?=-Wall -DWITH_COAP=13
 LDFLAGS?=-static
-iotgrid:	iotgrid.o 
-install:	iotgrid
+CC=gcc
+LIBS=-lcurses
+
+all: dummy iotgrid iotgridd
+
+dummy:
+	cp iotgrid.c iotgridd.c
+	
+iotgrid: iotgrid.c
+	$(CC)  $(CFLAGS) -o $@ $^ $(LIBS)
+	
+iotgridd: iotgridd.c
+	$(CC)  $(CFLAGS) -o $@ $^ $(LIBS)
+	    	
+#iotgrid:	iotgrid.o 
+#install:	iotgrid
 #iotgridd:	iotgridd.o 
 #install:	iotgridd
 #	strip iotgridd
