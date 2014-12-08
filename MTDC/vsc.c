@@ -1,6 +1,10 @@
 /*
  * vsc.c an implementation a of Voltage Source Controller (VSC) for the DC-grid
  *
+ * When load increases the current/load is shared among the available terminals
+ * according according to their capacity. The higher capacity the higher load.
+ * This a part of the basic droop control proposed for various grid. 
+ * The parameters used in the work below is illustrates a small DC "pico" grid.
  *
  *  Robert Olsson  <robert@roolss.kth.se>  
  *                 <robert@radio-sensors.com>
@@ -18,8 +22,16 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 
-#define MTDC_MAX 2  /* Max MTDC terminals */
+#define MTDC_MAX 2     /* Max MTDC terminals */
+#define DCGRID_MAX 15  /* Max Grid Voltage droop */
+#define DCGRID_MIN 12  /* Min Grid Voltage droop */
+
+/* 
+   DCGRID_MAX to DCGRID_MIN defines the operational voltage interval 
+   for load sharing according to droop control algorithm.
+*/
 
 struct vsc
 {
@@ -36,12 +48,13 @@ struct vsc
 void vsc_droop_init(struct vsc *v, int id)
 {
   if(id == 0) {
-    v->c1 = 16;
+    v->c1 = DCGRID_MAX;
     v->c2 = -0.07;
     v->p_max = 60;
   }
+
   if(id == 1) {
-    v->c1 = 15;
+    v->c1 = DCGRID_MAX;
     v->c2 = -0.03;
     v->p_max = 100;
   }
@@ -53,6 +66,7 @@ void vsc_droop_init(struct vsc *v, int id)
 
 void vsc_droop(struct vsc *v, double i)
 {
+
   if(i < v->i_min) {
     v->u = v->u_max;
     return;
@@ -74,6 +88,7 @@ int main()
   double i;
   int p1, p2; 
 
+  memset(t, 0, sizeof(t));
   i = 0;
 
   for(p1=0; p1 < MTDC_MAX; p1++)
