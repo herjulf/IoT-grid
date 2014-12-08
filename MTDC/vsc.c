@@ -1,9 +1,6 @@
 /*
- *  vsc.c an implementation of Voltage Source Controller (VSC) for a DC-grid
+ * vsc.c an implementation a of Voltage Source Controller (VSC) for the DC-grid
  *
- *  Member KTH IoT grid team. 
- *  Project site:
- *  https://github.com/herjulf/IoT-grid.git
  *
  *  Robert Olsson  <robert@roolss.kth.se>  
  *                 <robert@radio-sensors.com>
@@ -15,6 +12,9 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  *
+ *  Member KTH IoT grid team
+ *  Project site:
+ *  https://github.com/herjulf/IoT-grid.git
  */
 
 #include <stdio.h>
