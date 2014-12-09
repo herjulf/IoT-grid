@@ -7,5 +7,12 @@ CFLAGS?=-Wall
 LDFLAGS?=-static
 vsc:	vsc.o 
 
+
+run:	vsc
+	./vsc > vsc.dat
+	cat vsc.dat
+	gnuplot < vsc.gp
+	display vsc.png
+
 clean:
 	rm -f vsc.o vsc

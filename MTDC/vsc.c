@@ -25,13 +25,17 @@
 #include <string.h>
 
 #define MTDC_MAX 2     /* Max MTDC terminals */
-#define DCGRID_MAX 15  /* Max Grid Voltage droop */
-#define DCGRID_MIN 12  /* Min Grid Voltage droop */
 
 /* 
    DCGRID_MAX to DCGRID_MIN defines the operational voltage interval 
    for load sharing according to droop control algorithm.
 */
+
+
+#define DCGRID_MAX 15  /* Max Grid Voltage droop */
+#define DCGRID_MIN 12  /* Min Grid Voltage droop */
+
+/* Terminal/Converter parameter settings */
 
 struct vsc
 {
@@ -82,6 +86,8 @@ void vsc_droop(struct vsc *v, double i)
   }
 }
 
+/* A simple test program */
+
 int main()
 {
   struct vsc t[MTDC_MAX];
@@ -94,12 +100,15 @@ int main()
   for(p1=0; p1 < MTDC_MAX; p1++)
     vsc_droop_init(&t[p1], p1);
 
-  for(p1=0; p1 < 15; p1++) {
+  for(p1=0; p1 < DCGRID_MAX; p1++) {
 
     printf("i=%-5.2f ", i);
     for(p2=0; p2 < MTDC_MAX; p2++) {
       vsc_droop(&t[p2], i);
-      printf("p[%-d]=%-5.2f u[%-d]=%-5.2f ", p2, t[p2].p, p2, t[p2].u);
+      if(0)
+	printf("p[%-d]=%-5.2f u[%-d]=%-5.2f ", p2, t[p2].p, p2, t[p2].u);
+      else
+	printf("%-5.2f %-5.2f ", t[p2].p, t[p2].u);
     }
     printf("\n");
     i = i + 0.7;

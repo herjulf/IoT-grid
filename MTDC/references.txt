@@ -1,0 +1,34 @@
+REFERENCES
+----------
+[1] MULTI-TERMINAL DIRECT CURRENT GRIDS, Modeling, Analysis and Control
+    IEEE/WILEY, 2014
+
+[2] Frekvensreglering i det nordiska kraftsystemet
+    Modellering i PSS/E. Sylvia Persic. KTH/2007 
+
+[3] Control of DC voltage in Multi-Terminal HVDC Transmission (MTDC) 
+    systems. MOHAMMAD NAZIRI 2014/KTH
+
+[4] MCU Controlled DC-DC Buck/Boost Converter for Supercapacitors
+    Jorge Querol Borràs, 2012/KTH
+
+[5] Design and implementation of an IoT-controlled DC-DC converter
+    Tanyingyong, V., Olsson, R, Hidell, M., Sjodin, P., Pehrson, B., 
+    Sustainable Internet and ICT for Sustainability (SustainIT), 2013 
+
+[6] Next Generation Power Electronics Infrastructure System.
+    Johann W. Kolar. Eidgenössische Technische Hochschule Zürich (ETH)
+    NPERC-J workshop.
+    http://www.pes.ee.ethz.ch/uploads/tx_ethpublications/__Presentation_NPERC_J_finalfinal_as_presented_230413.pdf
+
+[7] Intergrid: A Future Electronic Energy Network? Dushan Boroyevich, 
+    Igor Cvetkovic, Dong Dong, Bo Wen, Rolando Burgos. 
+    http://ecceasia2013.org/Files/ECCE2013%20-%20Intergrid_Borojevich_handout.pdf
+
+[8] DC microgrids (droop control) users.ece.utexas.edu/~kwasinski/EE394J10opcont.ppt
+
+
+
+A Control Strategy for Islanded Microgrids With DC-Link Voltage Control 
+
+http://ieeexplore.ieee.org/xpl/login.jsp?tp=&arnumber=5685286&url=http%3A%2F%2Fieeexplore.ieee.org%2Fxpls%2Fabs_all.jsp%3Farnumber%3D5685286
