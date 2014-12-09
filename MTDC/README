@@ -1,4 +1,12 @@
 
-Read source code, view refeences 
+The goal was to have some simple source code in C for vdroop control
+proposed for the Voltage Source Converters (VSC). VSC is a simple
+and basic control mechanism for load sharing in small grids. There
+is lots of related work simulations etc. Next step is to implement
+and study a small operational grid.
 
-Try "make run"
+Read source code,  view references, try "make run"
+
+You should see a simple plot of two terminals.
+
+It's work-in-progress...
