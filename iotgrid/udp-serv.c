@@ -27,15 +27,6 @@ struct udp_hdr {
  unsigned short int csum;
 };
 
-#if WITH_COAP == 7
-struct coap_hdr {
-  unsigned int oc:4;
-  unsigned int type:2;
-  unsigned int ver:2;
-  unsigned int code:8;
-  unsigned short id; 
-};
-#elif WITH_COAP == 13
 struct coap_hdr {
   unsigned int tkl:4;
   unsigned int type:2;
@@ -43,9 +34,6 @@ struct coap_hdr {
   unsigned int code:8;
   unsigned short id;
 };
-#else
-#error "CoAP version defined by WITH_COAP is not supported"
-#endif
 
 /* length < 15 for CoAP-07 and length < 13 for CoAP-13*/
 struct coap_opt_s {
@@ -92,11 +80,7 @@ void dump_pkt(struct coap_hdr *ch, int len)
   int i;
   char *d = (char *) ch; 
 
-#if WITH_COAP == 7
-  printf("v=%u t=%u oc=%u code=%u id=%x\n", ch->ver, ch->type, ch->oc, ch->code, ch->id);
-#elif WITH_COAP == 13
   printf("v=%u t=%u tkl=%u code=%u id=%x\n", ch->ver, ch->type, ch->tkl, ch->code, ch->id);
-#endif
   
   for(i = 0; i < len; i++) {
     if(!i) 
@@ -139,9 +123,7 @@ int main(void)
      
     while(1)
     {
-        printf("Reading data: ");
-        fflush(stdout);
-         
+
         if ((recv_len = recvfrom(s, buf, BUFLEN, 0, 
 				 (struct sockaddr *) &si_other, &slen)) == -1) {
             die("recvfrom()");
@@ -149,20 +131,18 @@ int main(void)
          
         printf("Got from %s:%d\n", inet_ntoa(si_other.sin_addr), 
 	       ntohs(si_other.sin_port));
-        printf("Data: %s\n" , buf);
 
 	ch_rx = (struct coap_hdr*) &buf[0]; 
 
-	if(debug & D_COAP_REPORT)
-	  printf("%s\n", &buf[5+8]);  
-
 	if(debug & D_COAP_PKT)
 	  dump_pkt(ch_rx, recv_len);
-         
+
+#if 0         
         if (sendto(s, buf, recv_len, 0, (struct sockaddr*) &si_other, 
 		   slen) == -1)  {
 	  die("sendto()");
         }
+#endif
     }
     close(s);
     return 0;
