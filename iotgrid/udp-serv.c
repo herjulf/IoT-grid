@@ -122,7 +122,6 @@ int main(void)
     int s, slen = sizeof(si_other) , recv_len;
     char buf[BUFLEN];
     struct coap_hdr *ch_rx;
-    struct udp_hdr *uh;
 
     if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)  {
         die("socket");
@@ -152,14 +151,7 @@ int main(void)
 	       ntohs(si_other.sin_port));
         printf("Data: %s\n" , buf);
 
-
-	uh = (struct udp_hdr *) &buf[0];
-	if(PORT != ntohs(uh->dport))  {
-	  printf("ERR port %d:\n", ntohs(uh->dport));
-	  continue;
-	}
-    
-	ch_rx = (struct coap_hdr*) &buf[8]; /* UDP HDR len */
+	ch_rx = (struct coap_hdr*) &buf[0]; 
 
 	if(debug & D_COAP_REPORT)
 	  printf("%s\n", &buf[5+8]);  
