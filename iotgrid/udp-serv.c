@@ -189,6 +189,10 @@ void dump_pkt(struct coap_hdr *ch, int len)
   int i;
   char *d = (char *) ch; 
 
+  if(((d[4]>>4) & 0xF) == COAP_OPTION_URI_PATH) {
+    printf("URI = %s\n", &d[5]);
+  }
+
   printf("v=%u t=%u tkl=%u code=%u id=%x\n", ch->ver, ch->type, ch->tkl, ch->code, ch->id);
   
   for(i = 0; i < len; i++) {
@@ -209,12 +213,60 @@ void die(char *s)
     exit(1);
 }
  
-int main(void)
+int do_packet(char *buf, char *uri, unsigned char type, unsigned char code)
+{
+  int i, len;
+
+  struct coap_hdr *ch_rx, *ch_tx;
+  struct coap_opt_s *ch_os;
+  struct coap_opt_l *ch_ol;
+
+  ch_tx = (struct coap_hdr*) &buf[0];
+  ch_tx->ver = 1;
+  ch_tx->type = type;
+  ch_tx->tkl = 0;
+  ch_tx->code = code;
+
+  if(strlen(uri) <= 12) {
+    ch_os = (struct coap_opt_s*) &buf[4];
+    ch_os->delta = 11; // 11; /* Uri-Patch */
+    ch_os->len = strlen(uri);
+    strcpy(&buf[5], uri); /* Short opt */
+    len = sizeof(struct coap_hdr) + strlen(uri) + 1;
+
+    printf("SHORT delta=%d, len=%d\n", ch_os->delta, ch_os->len); 
+  }
+  else if(strlen(uri) > 12) {
+    ch_ol = (struct coap_opt_l*) &buf[4];
+    ch_ol->flag = 0xd;
+    ch_ol->len = strlen(uri) - 0xd;
+    ch_ol->delta = 11;  /* Uri-Patch */
+    strcpy(&buf[6], uri); /* Long opt */
+    len = sizeof(struct coap_hdr) + strlen(uri) + 2;
+
+    printf("LONG flg=%d , delta=%d, len=%d\n", ch_ol->flag, ch_ol->delta, ch_ol->len); 
+
+  }
+
+#if 0
+  if (sendto(sock, ch_tx, len, 0,
+             (struct sockaddr *)&server_addr,
+	     sizeof(server_addr)) < 0) {
+      perror("sendto failed");
+      exit(4);
+#endif
+      return len;
+  }
+
+  int main(void)
 {
     struct sockaddr_in si_me, si_other;
-    int s, slen = sizeof(si_other) , recv_len;
+    int s, slen = sizeof(si_other) , recv_len, send_len;
     char buf[BUFLEN];
     struct coap_hdr *ch_rx;
+    char *discover = "</ps/>;rt=\"core.ps\";ct=40";
+    //char *discover = "</ps/>";
+
 
     if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)  {
         die("socket");
@@ -246,11 +298,12 @@ int main(void)
 	if(debug & D_COAP_PKT)
 	  dump_pkt(ch_rx, recv_len);
 
-	
-	response(buf, BROKER_BASE_URI3, COAP_TYPE_ACK, COAP_GET);
-
+	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CONTENT_2_05);
+  
+	if(debug & D_COAP_PKT)
+	  dump_pkt(ch_rx, send_len);
 #if 1         
-        if (sendto(s, buf, recv_len, 0, (struct sockaddr*) &si_other, 
+        if (sendto(s, buf, send_len, 0, (struct sockaddr*) &si_other, 
 		   slen) == -1)  {
 	  die("sendto()");
         }
@@ -260,50 +313,3 @@ int main(void)
     return 0;
 }
 
-int response(char *buf, char *uri, unsigned int type, unsigned int mode)
-{
-  int i, len;
-
-  struct coap_hdr *ch_rx, *ch_tx;
-  struct coap_opt_s *ch_os;
-  struct coap_opt_l *ch_ol;
-
-  ch_tx = (struct coap_hdr*) &buf;
-  ch_tx->ver = 1;
-  ch_tx->type = type;
-  ch_tx->tkl = 0;
-
-  if(mode & COAP_GET)
-    ch_tx->code = 1;
-  if(mode & COAP_POST)
-    ch_tx->code = 2;
-
-  //ch_tx->id = 0xBEEF;
-
-  if(strlen(uri) <= 12) {
-    ch_os = (struct coap_opt_s*) &buf[4];
-    ch_os->delta = 11; // 11; /* Uri-Patch */
-    ch_os->len = strlen(uri);
-    strcpy(&buf[5], uri); /* Short opt */
-    len = sizeof(struct coap_hdr) + strlen(uri) + 1;
-  }
-  else if(strlen(uri) > 12) {
-    ch_ol = (struct coap_opt_l*) &buf[4];
-    ch_ol->flag = 0xd;
-    ch_ol->delta = 11; // 11; /* Uri-Patch */
-    ch_ol->len = strlen(uri) - 0xd;
-    strcpy(&buf[6], uri); /* Long opt */
-    len = sizeof(struct coap_hdr) + strlen(uri) + 2;
-  }
-
-  if(debug & D_COAP_PKT)
-    dump_pkt(ch_tx, len);
-
-#if 0
-  if (sendto(sock, ch_tx, len, 0,
-             (struct sockaddr *)&server_addr,
-	     sizeof(server_addr)) < 0) {
-      perror("sendto failed");
-      exit(4);
-#endif
-  }
