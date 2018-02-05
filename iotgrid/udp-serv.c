@@ -238,14 +238,13 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code)
   }
   else if(strlen(uri) > 12) {
     ch_ol = (struct coap_opt_l*) &buf[4];
-    ch_ol->flag = 0xd;
-    ch_ol->len = strlen(uri) - 0xd;
     ch_ol->delta = 11;  /* Uri-Patch */
+    ch_ol->flag = 13;   /* 1 byte */
+    ch_ol->len = strlen(uri) - 13;
     strcpy(&buf[6], uri); /* Long opt */
     len = sizeof(struct coap_hdr) + strlen(uri) + 2;
 
     printf("LONG flg=%d , delta=%d, len=%d\n", ch_ol->flag, ch_ol->delta, ch_ol->len); 
-
   }
 
 #if 0
