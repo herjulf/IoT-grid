@@ -17,7 +17,7 @@
 
 #define BROKER_BASE_URI1 "ps"
 #define BROKER_BASE_URI2 "rt=\"core.ps\";ct=40"
-#define BROKER_BASE_URI3 "</ps/>;rt=\"core.ps\""
+#define BROKER_BASE_URI3 "</ps/>;rt=\"core.ps\";ct=40"
 
 #define MAX_URI_LEN 50
 char uri[MAX_URI_LEN];
@@ -208,7 +208,7 @@ void dump_pkt(struct coap_hdr *ch, int len)
 	exit(-1);
       }
       else if(opt == 15) {
-	printf("OPT 15\n");
+	printf("PAYLOAD=%s\n", &d[i+1]);
       }
     }
     opt += old_opt;
@@ -240,6 +240,9 @@ void dump_pkt(struct coap_hdr *ch, int len)
       unsigned ii;
       for(ii = 1; ii <= olen; ii++) 
 	  printf("%c", d[ii+i]);
+    }
+    else if(opt == COAP_OPTION_CONTENT_FORMAT) {
+	  printf("cf=%d", d[i+1]);
     }
     printf("\n");
 
@@ -321,11 +324,13 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code, stru
   strcpy(&buf[len], xx); /* Short opt */
   len += strlen(xx);
 
+
+  #if 1
   buf[len] = 0xff;
   len++;
     strcpy(&buf[len], BROKER_BASE_URI3);
   len += strlen(BROKER_BASE_URI3);
-
+#endif
   
 #if 0
   if (sendto(sock, ch_tx, len, 0,
@@ -389,7 +394,6 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code, stru
 	  die("sendto()");
         }
 #endif
-	exit(0);
     }
     close(s);
     return 0;
