@@ -188,13 +188,69 @@ void dump_pkt(struct coap_hdr *ch, int len)
 {
   int i;
   char *d = (char *) ch; 
-
-  if(((d[4]>>4) & 0xF) == COAP_OPTION_URI_PATH) {
-    printf("URI = %s\n", &d[5]);
-  }
+  unsigned opt = 0, old_opt = 0;
 
   printf("v=%u t=%u tkl=%u code=%u id=%x\n", ch->ver, ch->type, ch->tkl, ch->code, ch->id);
-  
+
+  for(i = 4; i < len; i++) {
+    unsigned olen;
+
+    /* Option delta handling */
+    opt = (d[i]>>4) & 0xF;
+
+    if(opt > 12 ) {
+      if(opt == 13) {
+	i++;
+	opt = d[i] -13;
+      }
+      else if(opt == 14) {
+	printf("OPT 14 ERR\n");
+	exit(-1);
+      }
+      else if(opt == 15) {
+	printf("OPT 15 ERR\n");
+	exit(-1);
+      }
+    }
+    opt += old_opt;
+
+    
+    olen = (d[i]) & 0xF; 
+    if(olen > 12 ) {
+      if(olen == 13) {
+	i++;
+	printf("KALLE %d\n", d[i]);
+
+	olen = d[i] -13;
+      }
+      else if(olen == 14) {
+	printf("OLEN 14 ERR\n");
+	//exit(-1);
+      }
+      else if(olen == 15) {
+	printf("OLEN 15 ERR\n");
+	//exit(-1);
+      }
+    }
+
+    printf("Options: opt=%u, len=%u ", opt, olen);
+
+    if(opt == COAP_OPTION_URI_PATH) {
+      unsigned ii;
+      for(ii = 1; ii <= olen; ii++) 
+	  printf("%c", d[ii+i]);
+    }
+    else if(opt == COAP_OPTION_URI_QUERY) {
+      unsigned ii;
+      for(ii = 1; ii <= olen; ii++) 
+	  printf("%c", d[ii+i]);
+    }
+    printf("\n");
+
+    old_opt = opt;
+    i = i + olen;
+  }
+
   for(i = 0; i < len; i++) {
     if(!i) 
       printf("[%3d]", i);
@@ -215,24 +271,26 @@ void die(char *s)
  
 int do_packet(char *buf, char *uri, unsigned char type, unsigned char code)
 {
-  int i, len;
+  int i, len = 0;
 
   struct coap_hdr *ch_rx, *ch_tx;
   struct coap_opt_s *ch_os;
   struct coap_opt_l *ch_ol;
-
+  char *xx = "core.ps";
+  
   ch_tx = (struct coap_hdr*) &buf[0];
   ch_tx->ver = 1;
   ch_tx->type = type;
   ch_tx->tkl = 0;
   ch_tx->code = code;
 
+  
   if(strlen(uri) <= 12) {
     ch_os = (struct coap_opt_s*) &buf[4];
     ch_os->delta = 11; // 11; /* Uri-Patch */
     ch_os->len = strlen(uri);
     strcpy(&buf[5], uri); /* Short opt */
-    len = sizeof(struct coap_hdr) + strlen(uri) + 1;
+    len += sizeof(struct coap_hdr) + strlen(uri) + 2;
 
     printf("SHORT delta=%d, len=%d\n", ch_os->delta, ch_os->len); 
   }
@@ -242,11 +300,19 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code)
     ch_ol->flag = 13;   /* 1 byte */
     ch_ol->len = strlen(uri) - 13;
     strcpy(&buf[6], uri); /* Long opt */
-    len = sizeof(struct coap_hdr) + strlen(uri) + 2;
+    len += sizeof(struct coap_hdr) + strlen(uri) + 2;
 
+    ch_os = (struct coap_opt_s*) &buf[4];
+    ch_os->delta = 4; // COAP_OPTION_URI_QUERY;
+    ch_os->len = strlen(xx);
+    strcpy(&buf[5], xx); /* Short opt */
+    len += sizeof(struct coap_hdr) + strlen(xx) + 1;
+
+    
     printf("LONG flg=%d , delta=%d, len=%d\n", ch_ol->flag, ch_ol->delta, ch_ol->len); 
   }
 
+  
 #if 0
   if (sendto(sock, ch_tx, len, 0,
              (struct sockaddr *)&server_addr,
@@ -263,8 +329,8 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code)
     int s, slen = sizeof(si_other) , recv_len, send_len;
     char buf[BUFLEN];
     struct coap_hdr *ch_rx;
-    char *discover = "</ps/>;rt=\"core.ps\";ct=40";
-    //char *discover = "</ps/>";
+    //char *discover = "</ps/>;rt=core.ps";
+    char *discover = "</ps/>;core.ps";
 
 
     if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)  {
@@ -298,15 +364,17 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code)
 	  dump_pkt(ch_rx, recv_len);
 
 	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CONTENT_2_05);
-  
+	
 	if(debug & D_COAP_PKT)
 	  dump_pkt(ch_rx, send_len);
+
 #if 1         
         if (sendto(s, buf, send_len, 0, (struct sockaddr*) &si_other, 
 		   slen) == -1)  {
 	  die("sendto()");
         }
 #endif
+	exit(0);
     }
     close(s);
     return 0;
