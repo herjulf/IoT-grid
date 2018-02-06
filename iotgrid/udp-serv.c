@@ -17,7 +17,7 @@
 
 #define BROKER_BASE_URI1 "ps"
 #define BROKER_BASE_URI2 "rt=\"core.ps\";ct=40"
-#define BROKER_BASE_URI3 "</ps/>;rt=\"core.ps\";ct=40"
+#define BROKER_BASE_URI3 "</ps/>;rt=\"core.ps\""
 
 #define MAX_URI_LEN 50
 char uri[MAX_URI_LEN];
@@ -208,8 +208,7 @@ void dump_pkt(struct coap_hdr *ch, int len)
 	exit(-1);
       }
       else if(opt == 15) {
-	printf("OPT 15 ERR\n");
-	exit(-1);
+	printf("OPT 15\n");
       }
     }
     opt += old_opt;
@@ -219,8 +218,6 @@ void dump_pkt(struct coap_hdr *ch, int len)
     if(olen > 12 ) {
       if(olen == 13) {
 	i++;
-	printf("KALLE %d\n", d[i]);
-
 	olen = d[i] -13;
       }
       else if(olen == 14) {
@@ -228,8 +225,7 @@ void dump_pkt(struct coap_hdr *ch, int len)
 	//exit(-1);
       }
       else if(olen == 15) {
-	printf("OLEN 15 ERR\n");
-	//exit(-1);
+	printf("OLEN 15\n");
       }
     }
 
@@ -269,48 +265,66 @@ void die(char *s)
     exit(1);
 }
  
-int do_packet(char *buf, char *uri, unsigned char type, unsigned char code)
+int do_packet(char *buf, char *uri, unsigned char type, unsigned char code, struct coap_hdr *ch)
 {
   int i, len = 0;
 
   struct coap_hdr *ch_rx, *ch_tx;
   struct coap_opt_s *ch_os;
   struct coap_opt_l *ch_ol;
-  char *xx = "core.ps";
+  char *xx = "\"core.ps\"";
   
   ch_tx = (struct coap_hdr*) &buf[0];
   ch_tx->ver = 1;
   ch_tx->type = type;
   ch_tx->tkl = 0;
   ch_tx->code = code;
+  ch_tx->id = ch->id;
 
-  
+  len = sizeof(struct coap_hdr);
   if(strlen(uri) <= 12) {
-    ch_os = (struct coap_opt_s*) &buf[4];
+    ch_os = (struct coap_opt_s*) &buf[len];
     ch_os->delta = 11; // 11; /* Uri-Patch */
     ch_os->len = strlen(uri);
-    strcpy(&buf[5], uri); /* Short opt */
-    len += sizeof(struct coap_hdr) + strlen(uri) + 2;
-
+    len++;
+    strcpy(&buf[len], uri); /* Short opt */
+    len += strlen(uri);
     printf("SHORT delta=%d, len=%d\n", ch_os->delta, ch_os->len); 
   }
   else if(strlen(uri) > 12) {
-    ch_ol = (struct coap_opt_l*) &buf[4];
+    ch_ol = (struct coap_opt_l*) &buf[len];
     ch_ol->delta = 11;  /* Uri-Patch */
     ch_ol->flag = 13;   /* 1 byte */
     ch_ol->len = strlen(uri) - 13;
-    strcpy(&buf[6], uri); /* Long opt */
-    len += sizeof(struct coap_hdr) + strlen(uri) + 2;
-
-    ch_os = (struct coap_opt_s*) &buf[4];
-    ch_os->delta = 4; // COAP_OPTION_URI_QUERY;
-    ch_os->len = strlen(xx);
-    strcpy(&buf[5], xx); /* Short opt */
-    len += sizeof(struct coap_hdr) + strlen(xx) + 1;
-
-    
+    len += 2;
+    strcpy(&buf[len], uri); /* Long opt */
+    len += strlen(uri);
     printf("LONG flg=%d , delta=%d, len=%d\n", ch_ol->flag, ch_ol->delta, ch_ol->len); 
   }
+
+
+  // COAP_OPTION_CONTENT_FORMAT = 12,      /* 0-2 B */
+  // APPLICATION_LINK_FORMAT = 40,
+
+  
+  ch_os = (struct coap_opt_s*) &buf[len];
+  ch_os->delta = 1; // COAP_OPTION_URI_QUERY;
+  ch_os->len = 1;
+  len++;
+  buf[len] = APPLICATION_LINK_FORMAT; 
+  len++;
+  
+  ch_os = (struct coap_opt_s*) &buf[len];
+  ch_os->delta = 3; // COAP_OPTION_URI_QUERY;
+  ch_os->len = strlen(xx);
+  len++;
+  strcpy(&buf[len], xx); /* Short opt */
+  len += strlen(xx);
+
+  buf[len] = 0xff;
+  len++;
+    strcpy(&buf[len], BROKER_BASE_URI3);
+  len += strlen(BROKER_BASE_URI3);
 
   
 #if 0
@@ -330,7 +344,7 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code)
     char buf[BUFLEN];
     struct coap_hdr *ch_rx;
     //char *discover = "</ps/>;rt=core.ps";
-    char *discover = "</ps/>;core.ps";
+    char *discover = "</ps/>";
 
 
     if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)  {
@@ -338,6 +352,7 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code)
     }
      
     memset((char *) &si_me, 0, sizeof(si_me));
+    memset((char *) &buf, 0, sizeof(buf));
      
     si_me.sin_family = AF_INET;
     si_me.sin_port = htons(PORT);
@@ -363,7 +378,7 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code)
 	if(debug & D_COAP_PKT)
 	  dump_pkt(ch_rx, recv_len);
 
-	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CONTENT_2_05);
+	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CONTENT_2_05, ch_rx);
 	
 	if(debug & D_COAP_PKT)
 	  dump_pkt(ch_rx, send_len);
