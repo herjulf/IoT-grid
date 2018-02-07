@@ -9,15 +9,14 @@
 #define BUFLEN 512
 #define PORT 5683
 
-#define VERSION "1.0 2018-01-30"
+#define VERSION "1.0 2018-02-07"
 
 #define D_COAP_PKT      (1<<0)
 #define D_COAP_REPORT   (1<<1)
 #define D_COAP_STRING   (1<<2)
 
-#define BROKER_BASE_URI1 "ps"
-#define BROKER_BASE_URI2 "rt=\"core.ps\";ct=40"
-#define BROKER_BASE_URI3 "</ps/>;rt=\"core.ps\";ct=40"
+#define BROKER_BASE_URI "</ps/>;rt=\"core.ps\";ct=40"
+char *broker_base_uri = BROKER_BASE_URI;
 
 #define MAX_URI_LEN 50
 char uri[MAX_URI_LEN];
@@ -219,8 +218,12 @@ void dump_pkt(struct coap_hdr *ch, int len)
 	opt = d[i] + 13;
       }
       else if(opt == 14) {
-	printf("OPT 14 ERR\n");
-	//exit(-1);
+	printf("UNTESTED OPT 14\n");
+	i++;
+	opt = d[i]<<8;
+	i++;
+	opt += d[i];
+	opt += 269;
       }
       else if(opt == 15) {
 	printf("PAYLOAD=%s\n", &d[i+1]);
@@ -235,11 +238,15 @@ void dump_pkt(struct coap_hdr *ch, int len)
 	olen = d[i] + 13;
       }
       else if(olen == 14) {
-	printf("OLEN 14 ERR\n");
-	//exit(-1);
+	printf("UNTESTED OLEN 14\n");
+	i++;
+	olen = d[i]<<8;
+	i++;
+	olen += d[i];
+	olen += 269;
       }
       else if(olen == 15) {
-	printf("OLEN 15\n");
+	printf("ERR OPT FORMAT LEN=15\n");
       }
     }
 
@@ -271,7 +278,7 @@ void die(char *s)
     exit(1);
 }
  
-int do_packet(char *buf, char *uri, unsigned char type, unsigned char code)
+int do_packet(char *buf, char *uri, unsigned char type, unsigned char code, unsigned char *payload)
 {
   int i, len = 0;
 
@@ -299,7 +306,7 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code)
   else if(strlen(uri) > 12) {
     ch_ol = (struct coap_opt_l*) &buf[len];
     ch_ol->delta = 11;  /* Uri-Patch */
-    ch_ol->flag = 13;   /* 1 byte */
+    ch_ol->flag = 13;   /* 1 byte extension */
     ch_ol->len = strlen(uri) - 13;
     len += 2;
     strcpy(&buf[len], uri); /* Long opt */
@@ -321,13 +328,13 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code)
   strcpy(&buf[len], xx); /* Short opt */
   len += strlen(xx);
 
+  if(payload) {
+    buf[len] = 0xff;
+    len++;
+    strcpy(&buf[len], payload);
+    len += strlen(payload);
+  }
 
-  #if 1
-  buf[len] = 0xff;
-  len++;
-    strcpy(&buf[len], BROKER_BASE_URI3);
-  len += strlen(BROKER_BASE_URI3);
-#endif
       return len;
   }
 
@@ -377,17 +384,17 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code)
 
       /* DISCOVER */
       if((co->type == COAP_TYPE_CON) && (co->code == COAP_GET)) {
-	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CONTENT_2_05);
+	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CONTENT_2_05, broker_base_uri);
       }	
 
       /* CREATE */
       if((co->type == COAP_TYPE_CON) && (co->code == COAP_POST)) {
-	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CREATED_2_01);
+	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CREATED_2_01, broker_base_uri);
       }	
 
       /* SUBSCRIBE -- PUT OR POST */
       if((co->type == COAP_TYPE_CON) && (co->code == COAP_PUT)) {
-	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CHANGED_2_04);
+	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CHANGED_2_04, broker_base_uri);
       }	
 
       if(debug & D_COAP_PKT)
