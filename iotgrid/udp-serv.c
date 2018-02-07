@@ -268,11 +268,11 @@ void die(char *s)
     exit(1);
 }
  
-int do_packet(char *buf, char *uri, unsigned char type, unsigned char code, struct coap_hdr *ch)
+int do_packet(char *buf, char *uri, unsigned char type, unsigned char code)
 {
   int i, len = 0;
 
-  struct coap_hdr *ch_rx, *ch_tx;
+  struct coap_hdr *ch_tx;
   struct coap_opt_s *ch_os;
   struct coap_opt_l *ch_ol;
   char *xx = "\"core.ps\"";
@@ -282,12 +282,11 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code, stru
   ch_tx->type = type;
   ch_tx->tkl = 0;
   ch_tx->code = code;
-  ch_tx->id = ch->id;
 
   len = sizeof(struct coap_hdr);
   if(strlen(uri) <= 12) {
     ch_os = (struct coap_opt_s*) &buf[len];
-    ch_os->delta = 11; // 11; /* Uri-Patch */
+    ch_os->delta = 11; /* COAP_OPTION_URI_PATH = 11 */
     ch_os->len = strlen(uri);
     len++;
     strcpy(&buf[len], uri); /* Short opt */
@@ -305,20 +304,15 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code, stru
     printf("LONG flg=%d , delta=%d, len=%d\n", ch_ol->flag, ch_ol->delta, ch_ol->len); 
   }
 
-
-  // COAP_OPTION_CONTENT_FORMAT = 12,      /* 0-2 B */
-  // APPLICATION_LINK_FORMAT = 40,
-
-  
   ch_os = (struct coap_opt_s*) &buf[len];
-  ch_os->delta = 1; // COAP_OPTION_URI_QUERY;
+  ch_os->delta = 1; /* COAP_OPTION_CONTENT_FORMAT = 12 */
   ch_os->len = 1;
   len++;
   buf[len] = APPLICATION_LINK_FORMAT; 
   len++;
   
   ch_os = (struct coap_opt_s*) &buf[len];
-  ch_os->delta = 3; // COAP_OPTION_URI_QUERY;
+  ch_os->delta = 3; /* COAP_OPTION_URI_QUERY = 15 */
   ch_os->len = strlen(xx);
   len++;
   strcpy(&buf[len], xx); /* Short opt */
@@ -331,14 +325,6 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code, stru
     strcpy(&buf[len], BROKER_BASE_URI3);
   len += strlen(BROKER_BASE_URI3);
 #endif
-  
-#if 0
-  if (sendto(sock, ch_tx, len, 0,
-             (struct sockaddr *)&server_addr,
-	     sizeof(server_addr)) < 0) {
-      perror("sendto failed");
-      exit(4);
-#endif
       return len;
   }
 
@@ -347,17 +333,15 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code, stru
     struct sockaddr_in si_me, si_other;
     int s, slen = sizeof(si_other) , recv_len, send_len;
     char buf[BUFLEN];
-    struct coap_hdr *ch_rx;
+    struct coap_hdr *co;
     //char *discover = "</ps/>;rt=core.ps";
     char *discover = "</ps/>";
-
 
     if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)  {
         die("socket");
     }
      
     memset((char *) &si_me, 0, sizeof(si_me));
-    memset((char *) &buf, 0, sizeof(buf));
      
     si_me.sin_family = AF_INET;
     si_me.sin_port = htons(PORT);
@@ -369,31 +353,48 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code, stru
      
     while(1)
     {
+      memset((char *) &buf, 0, sizeof(buf));
 
-        if ((recv_len = recvfrom(s, buf, BUFLEN, 0, 
-				 (struct sockaddr *) &si_other, &slen)) == -1) {
-            die("recvfrom()");
-        }
+      if ((recv_len = recvfrom(s, buf, BUFLEN, 0, 
+			       (struct sockaddr *) &si_other, &slen)) == -1) {
+	die("recvfrom()");
+      }
          
-        printf("Got from %s:%d\n", inet_ntoa(si_other.sin_addr), 
-	       ntohs(si_other.sin_port));
+      printf("Got from %s:%d\n", inet_ntoa(si_other.sin_addr), 
+	     ntohs(si_other.sin_port));
 
-	ch_rx = (struct coap_hdr*) &buf[0]; 
+      co = (struct coap_hdr*) &buf[0]; 
 
-	if(debug & D_COAP_PKT)
-	  dump_pkt(ch_rx, recv_len);
+      if(debug & D_COAP_PKT)
+	dump_pkt(co, recv_len);
 
-	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CONTENT_2_05, ch_rx);
-	
-	if(debug & D_COAP_PKT)
-	  dump_pkt(ch_rx, send_len);
+      if(co->ver != 1) {
+	die("coap format");
+      }
 
-#if 1         
+      /* DISCOVER */
+      if((co->type == COAP_TYPE_CON) && (co->code == COAP_GET)) {
+	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CONTENT_2_05);
+      }	
+
+      /* CREATE */
+      if((co->type == COAP_TYPE_CON) && (co->code == COAP_POST)) {
+	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CREATED_2_01);
+      }	
+
+      /* SUBSCRIBE -- PUT OR POST */
+      if((co->type == COAP_TYPE_CON) && (co->code == COAP_PUT)) {
+	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CHANGED_2_04);
+      }	
+
+      if(debug & D_COAP_PKT)
+	dump_pkt(co, send_len);
+
+
         if (sendto(s, buf, send_len, 0, (struct sockaddr*) &si_other, 
 		   slen) == -1)  {
 	  die("sendto()");
         }
-#endif
     }
     close(s);
     return 0;
