@@ -266,6 +266,10 @@ void dump_pkt(struct coap_hdr *ch, int len)
     else if(opt == COAP_OPTION_CONTENT_FORMAT) {
 	  printf("cf=%d", d[i+1]);
     }
+    else if(opt == COAP_OPTION_MAX_AGE) {
+      printf("Max-Age==%d", (d[i+1]<<8 + d[i+2]));
+    }
+
     printf("\n");
 
     old_opt = opt;
@@ -395,7 +399,7 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code, unsi
 
       /* SUBSCRIBE -- PUT OR POST */
       if((co->type == COAP_TYPE_CON) && (co->code == COAP_PUT)) {
-	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CHANGED_2_04, broker_base_uri);
+	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CHANGED_2_04, NULL);
       }	
 
       if(debug & D_COAP_PKT)
