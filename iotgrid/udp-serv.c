@@ -216,7 +216,7 @@ void dump_pkt(struct coap_hdr *ch, int len)
     if(opt > 12 ) {
       if(opt == 13) {
 	i++;
-	opt = d[i] -13;
+	opt = d[i] + 13;
       }
       else if(opt == 14) {
 	printf("OPT 14 ERR\n");
@@ -232,7 +232,7 @@ void dump_pkt(struct coap_hdr *ch, int len)
     if(olen > 12 ) {
       if(olen == 13) {
 	i++;
-	olen = d[i] -13;
+	olen = d[i] + 13;
       }
       else if(olen == 14) {
 	printf("OLEN 14 ERR\n");
