@@ -227,6 +227,7 @@ void dump_pkt(struct coap_hdr *ch, int len)
       }
       else if(opt == 15) {
 	printf("PAYLOAD=%s\n", &d[i+1]);
+	return;
       }
     }
     opt += old_opt;
