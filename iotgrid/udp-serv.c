@@ -190,7 +190,22 @@ void dump_pkt(struct coap_hdr *ch, int len)
   char *d = (char *) ch; 
   unsigned opt = 0, old_opt = 0;
 
+  printf("COAP DUMP pkt lengh=%d\n", len); 
   printf("v=%u t=%u tkl=%u code=%u id=%x\n", ch->ver, ch->type, ch->tkl, ch->code, ch->id);
+
+
+  for(i = 0; i < len; i++) {
+    if(!i) 
+      printf("[%3d]", i);
+
+    printf(" %02x", d[i] & 0xFF);
+    
+    if(! ((i+1)%16) )
+      printf("\n[%3d]", i);
+  }
+    printf("\n");
+
+  printf("COAP DUMP Option/Payload\n"); 
 
   for(i = 4; i < len; i++) {
     unsigned olen;
@@ -205,14 +220,13 @@ void dump_pkt(struct coap_hdr *ch, int len)
       }
       else if(opt == 14) {
 	printf("OPT 14 ERR\n");
-	exit(-1);
+	//exit(-1);
       }
       else if(opt == 15) {
 	printf("PAYLOAD=%s\n", &d[i+1]);
       }
     }
     opt += old_opt;
-
     
     olen = (d[i]) & 0xF; 
     if(olen > 12 ) {
@@ -249,17 +263,6 @@ void dump_pkt(struct coap_hdr *ch, int len)
     old_opt = opt;
     i = i + olen;
   }
-
-  for(i = 0; i < len; i++) {
-    if(!i) 
-      printf("[%3d]", i);
-
-    printf(" %02x", d[i] & 0xFF);
-    
-    if(! ((i+1)%16) )
-      printf("\n[%3d]", i);
-  }
-    printf("\n");
 }
 
 void die(char *s)
