@@ -23,24 +23,23 @@ char uri[MAX_URI_LEN];
 
 /* CoAP message types */
 typedef enum {
-  COAP_TYPE_CON,                /* confirmables */
-  COAP_TYPE_NON,                /* non-confirmables */
-  COAP_TYPE_ACK,                /* acknowledgements */
-  COAP_TYPE_RST                 /* reset */
-} coap_message_type_t;
+  COAP_TYPE_CON,         /* confirm*/
+  COAP_TYPE_NON,         /* non-confirm */
+  COAP_TYPE_ACK,         /* ack */
+  COAP_TYPE_RST          /* reset */
+} coap_message_t;
 
 /* CoAP request method codes */
-enum {
+typedef enum {
 COAP_GET = 1,
   COAP_POST,
   COAP_PUT,
   COAP_DELETE
-  };
+  } coap_request_t;
 
 /* CoAP response codes */
 typedef enum {
   NO_ERROR = 0,
-
   CREATED_2_01 = 65,            /* CREATED */
   DELETED_2_02 = 66,            /* DELETED */
   VALID_2_03 = 67,              /* NOT_MODIFIED */
@@ -66,14 +65,7 @@ typedef enum {
   GATEWAY_TIMEOUT_5_04 = 164,   /* GATEWAY_TIMEOUT */
   PROXYING_NOT_SUPPORTED_5_05 = 165,    /* PROXYING_NOT_SUPPORTED */
 
-  /* Erbium errors */
-  MEMORY_ALLOCATION_ERROR = 192,
-  PACKET_SERIALIZATION_ERROR,
-
-  /* Erbium hooks */
-  MANUAL_RESPONSE,
-  PING_RESPONSE
-} coap_status_t;
+} coap_response_t;
 
 /* CoAP header option numbers */
 typedef enum {
@@ -122,7 +114,7 @@ typedef enum {
   APPLICATION_SOAP_FASTINFOSET = 49,
   APPLICATION_JSON = 50,
   APPLICATION_X_OBIX_BINARY = 51
-} coap_content_format_t;
+} coap_content_t;
 
 
 unsigned int debug = 3;
@@ -284,7 +276,7 @@ void die(char *s)
     exit(1);
 }
  
-int do_packet(char *buf, char *uri, unsigned char type, unsigned char code, unsigned char *payload)
+int do_packet(char *buf, unsigned char type, unsigned char code, char *uri, unsigned char *payload)
 {
   int i, len = 0;
 
@@ -294,30 +286,33 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code, unsi
   char *xx = "\"core.ps\"";
   
   ch_tx = (struct coap_hdr*) &buf[0];
+  len = sizeof(struct coap_hdr);
+
   ch_tx->ver = 1;
   ch_tx->type = type;
   ch_tx->tkl = 0;
   ch_tx->code = code;
 
-  len = sizeof(struct coap_hdr);
-  if(strlen(uri) <= 12) {
-    ch_os = (struct coap_opt_s*) &buf[len];
-    ch_os->delta = 11; /* COAP_OPTION_URI_PATH = 11 */
-    ch_os->len = strlen(uri);
-    len++;
-    strcpy(&buf[len], uri); /* Short opt */
-    len += strlen(uri);
-    printf("SHORT delta=%d, len=%d\n", ch_os->delta, ch_os->len); 
-  }
-  else if(strlen(uri) > 12) {
-    ch_ol = (struct coap_opt_l*) &buf[len];
-    ch_ol->delta = 11;  /* Uri-Patch */
-    ch_ol->flag = 13;   /* 1 byte extension */
-    ch_ol->len = strlen(uri) - 13;
-    len += 2;
-    strcpy(&buf[len], uri); /* Long opt */
-    len += strlen(uri);
-    printf("LONG flg=%d , delta=%d, len=%d\n", ch_ol->flag, ch_ol->delta, ch_ol->len); 
+  if( uri ) {
+    if(strlen(uri) <= 12) {
+      ch_os = (struct coap_opt_s*) &buf[len];
+      ch_os->delta = 11; /* COAP_OPTION_URI_PATH = 11 */
+      ch_os->len = strlen(uri);
+      len++;
+      strcpy(&buf[len], uri); /* Short opt */
+      len += strlen(uri);
+      printf("SHORT delta=%d, len=%d\n", ch_os->delta, ch_os->len); 
+    }
+    else if(strlen(uri) > 12) {
+      ch_ol = (struct coap_opt_l*) &buf[len];
+      ch_ol->delta = 11;  /* Uri-Patch */
+      ch_ol->flag = 13;   /* 1 byte extension */
+      ch_ol->len = strlen(uri) - 13;
+      len += 2;
+      strcpy(&buf[len], uri); /* Long opt */
+      len += strlen(uri);
+      printf("LONG flg=%d , delta=%d, len=%d\n", ch_ol->flag, ch_ol->delta, ch_ol->len); 
+    }
   }
 
   ch_os = (struct coap_opt_s*) &buf[len];
@@ -340,9 +335,8 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code, unsi
     strcpy(&buf[len], payload);
     len += strlen(payload);
   }
-
-      return len;
-  }
+  return len;
+}
 
   int main(void)
 {
@@ -385,27 +379,26 @@ int do_packet(char *buf, char *uri, unsigned char type, unsigned char code, unsi
 	dump_pkt(co, recv_len);
 
       if(co->ver != 1) {
-	die("coap format");
+	die("CoAP version");
       }
 
       /* DISCOVER */
       if((co->type == COAP_TYPE_CON) && (co->code == COAP_GET)) {
-	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CONTENT_2_05, broker_base_uri);
+	send_len = do_packet(buf, COAP_TYPE_ACK, CONTENT_2_05, discover, broker_base_uri);
       }	
 
       /* CREATE */
       if((co->type == COAP_TYPE_CON) && (co->code == COAP_POST)) {
-	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CREATED_2_01, broker_base_uri);
+	send_len = do_packet(buf, COAP_TYPE_ACK, CREATED_2_01, discover, broker_base_uri);
       }	
 
       /* SUBSCRIBE -- PUT OR POST */
       if((co->type == COAP_TYPE_CON) && (co->code == COAP_PUT)) {
-	send_len = do_packet(buf, discover, COAP_TYPE_ACK, CHANGED_2_04, NULL);
+	send_len = do_packet(buf, COAP_TYPE_ACK, CHANGED_2_04, NULL, NULL);
       }	
 
       if(debug & D_COAP_PKT)
 	dump_pkt(co, send_len);
-
 
         if (sendto(s, buf, send_len, 0, (struct sockaddr*) &si_other, 
 		   slen) == -1)  {
