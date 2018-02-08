@@ -9,7 +9,7 @@
 #define BUFLEN 512
 #define PORT 5683
 
-#define VERSION "1.0 2018-02-07"
+#define VERSION "1.0 2018-02-08"
 
 #define D_COAP_PKT      (1<<0)
 #define D_COAP_REPORT   (1<<1)
@@ -253,23 +253,24 @@ void dump_pkt(struct coap_hdr *ch, int len)
 
     printf("Options: opt=%u, len=%u ", opt, olen);
 
-    if(opt == COAP_OPTION_URI_PATH) {
-      unsigned ii;
-      for(ii = 1; ii <= olen; ii++) 
+    if( olen ) {
+      if(opt == COAP_OPTION_URI_PATH) {
+	unsigned ii;
+	for(ii = 1; ii <= olen; ii++) 
 	  printf("%c", d[ii+i]);
-    }
-    else if(opt == COAP_OPTION_URI_QUERY) {
-      unsigned ii;
-      for(ii = 1; ii <= olen; ii++) 
+      }
+      else if(opt == COAP_OPTION_URI_QUERY) {
+	unsigned ii;
+	for(ii = 1; ii <= olen; ii++) 
 	  printf("%c", d[ii+i]);
+      }
+      else if(opt == COAP_OPTION_CONTENT_FORMAT) {
+	printf("cf=%d", d[i+1]);
+      }
+      else if(opt == COAP_OPTION_MAX_AGE) {
+	printf("Max-Age=%u", ((unsigned) d[i+1]<<8 + d[i+2]));
+      }
     }
-    else if(opt == COAP_OPTION_CONTENT_FORMAT) {
-	  printf("cf=%d", d[i+1]);
-    }
-    else if(opt == COAP_OPTION_MAX_AGE) {
-      printf("Max-Age==%d", (d[i+1]<<8 + d[i+2]));
-    }
-
     printf("\n");
 
     old_opt = opt;
