@@ -268,7 +268,7 @@ void dump_pkt(struct coap_hdr *ch, int len)
 	printf("cf=%d", d[i+1]);
       }
       else if(opt == COAP_OPTION_MAX_AGE) {
-	printf("Max-Age=%u", ((unsigned) d[i+1]<<8 + d[i+2]));
+	printf("Max-Age=%u", (d[i+1]<<8) + d[i+2]);
       }
     }
     printf("\n");
